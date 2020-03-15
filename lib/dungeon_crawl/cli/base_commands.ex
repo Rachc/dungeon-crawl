@@ -1,19 +1,24 @@
 defmodule DungeonCrawl.CLI.BaseCommands do
-  alias Mix.Shell.IO, as: Shell
+  use Monad.Operators
 
-  @invalid_option{:error, "Invalid Option"}
+  alias Mix.Shell.IO, as: Shell
+  import Monad.Result, only: [success: 1, success?: 1, error: 1, return: 1]
 
   def ask_for_option(options) do
-    options
-    |> display_options
-    |> generate_question
-    |> Shell.prompt
-    |> parse_answer!
-    |> find_option_by_index!(options)
-    catch
-      {:error, message} ->
-        display_error(message)
-        ask_for_option(options)
+    result =
+      return(options)
+      ~>> (&display_options/1)
+      ~>> (&generate_question/1)
+      ~>> (&Shell.prompt/1)
+      ~>> (&parse_answer/1)
+      ~>> (&(find_option_by_index(&1, options)))
+
+    if success?(result) do
+      result.value
+    else
+      display_error(result.error)
+      ask_for_option(options)
+    end
   end
 
   def display_options(options) do
@@ -21,7 +26,7 @@ defmodule DungeonCrawl.CLI.BaseCommands do
     |> Enum.with_index(1)
     |> Enum.each(fn {option, index} -> Shell.info("#{index} - #{option}") end)
 
-    options
+    return(options)
   end
 
   def generate_question(options) do
@@ -29,15 +34,18 @@ defmodule DungeonCrawl.CLI.BaseCommands do
     "Wich one? [#{options}]\n"
   end
 
-  def parse_answer!(answer) do
+  def parse_answer(answer) do
     case Integer.parse(answer) do
-      :error -> throw @invalid_option
-      {option, _} -> option - 1
+      :error -> error("Invalid Option")
+      {option, _} -> success(option - 1)
     end
   end
 
-  def find_option_by_index!(index, options) do
-    Enum.at(options, index) || throw @invalid_option
+  def find_option_by_index(index, options) do
+    case Enum.at(options, index) do
+      nil -> error("Invalid Option")
+      chosen_option -> success(chosen_option)
+    end
   end
 
   def display_error(message) do
