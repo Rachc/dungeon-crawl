@@ -7,7 +7,9 @@ defmodule DungeonCrawl.CLI.HeroChoice do
     Shell.cmd("clear")
     Shell.info("Start by choosing your hero")
 
-    ask_for_option(DungeonCrawl.Heroes.all)
+    DungeonCrawl.Heroes.all()
+      |> ask_for_option
+      |> confirm_hero
   end
 
   defp confirm_hero(chosen_hero) do
